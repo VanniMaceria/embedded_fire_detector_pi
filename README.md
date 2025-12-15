@@ -11,7 +11,7 @@ The system is modularized into five core components:
 
 * **`FrameProvider`**: Hardware abstraction for PiCamera.
 * **`ImageProcessor`**: Pre-processing and input sanitization.
-* **`InferenceEngine`**: Wrapper for the TFLite model.
+* **`InferenceEngine`**: Wrapper for the ML model.
 * **`FireMonitor`**: Main orchestrator controlling the logic loop.
 * **`AlertNotifier`**: Handles HTTP/REST API communication.
 

@@ -1,10 +1,10 @@
 import numpy as np
 
 class InferenceEngine:
-    """Wrapper per il modello TFLite."""
+    """Wrapper per il modello di ML"""
 
     def __init__(self, model_path: str):
-        # Qui caricheremo il TFLite Interpreter
+
         pass
 
     def predict(self, processed_image: np.ndarray) -> float:

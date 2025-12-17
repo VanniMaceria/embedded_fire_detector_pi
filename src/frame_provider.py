@@ -1,10 +1,10 @@
 import numpy as np
 
 class FrameProvider:
-    """Gestisce l'acquisizione delle immagini dalla camera hardware."""
+    """Gestisce l'acquisizione delle immagini dal video."""
 
     def __init__(self, resolution: tuple = (640, 480)):
-        # Qui inizializzeremo la PiCamera
+
         pass
 
     def get_frame(self) -> np.ndarray:

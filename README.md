@@ -9,7 +9,7 @@ This project implements a **real-time fire detection system** on a Raspberry Pi 
 ## 🏗 Architecture (Single Responsibility)
 The system is modularized into five core components:
 
-* **`FrameProvider`**: Hardware abstraction for PiCamera.
+* **`FrameProvider`**: abstraction for PiCamera or video input.
 * **`ImageProcessor`**: Pre-processing and input sanitization.
 * **`InferenceEngine`**: Wrapper for the ML model.
 * **`FireMonitor`**: Main orchestrator controlling the logic loop.

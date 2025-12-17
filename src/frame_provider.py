@@ -3,7 +3,7 @@ import numpy as np
 class FrameProvider:
     """Gestisce l'acquisizione delle immagini dal video."""
 
-    def __init__(self, resolution: tuple = (640, 480)):
+    def __init__(self, path: str):
 
         pass
 

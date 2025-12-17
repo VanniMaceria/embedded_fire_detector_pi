@@ -23,5 +23,5 @@ class TestFrameProvider(unittest.TestCase):
         result = frame_provider.get_frame()
 
         # --- ASSERT ---
-        self.assertIsInstance(result, np.ndarray)  # Verifica che il frame letto sia un array nunmpy
+        self.assertIsInstance(result, np.ndarray)  # Verifica che il frame letto sia un n-dimensional array nunmpy
         self.assertTrue(np.array_equal(result, fake_frame)) # Verifica che il frame sia proprio fake_frame

@@ -15,10 +15,10 @@ class FrameProvider:
 
     def get_frame(self) -> np.ndarray:
         """Cattura un frame e lo restituisce come array NumPy."""
-        result = self.capturer.read()   # Restituisce l'esito (bool) e la matrice
-        #outcome = result[0]
+        result = self.capturer.read()   # Restituisce l'esito (bool) e la matrice.
+        #outcome = result[0]    # Restituisce falso quando il video è finito o non è riuscito a leggere il frame. Quando è così si fa ripartire il video per dare l'effetto loop
         frame = result[1]
 
-        #gestisci la lettura errata dopo il corrispettivo test
+
 
         return frame

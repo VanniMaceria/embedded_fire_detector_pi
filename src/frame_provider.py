@@ -1,11 +1,16 @@
 import cv2
 import numpy as np
 
+from src.exceptions.VideoOpenError import VideoOpenError
+
+
 class FrameProvider:
     """Gestisce l'acquisizione delle immagini dal video."""
 
     def __init__(self, path: str):
         self.capturer = cv2.VideoCapture(path)
+        if not self.capturer.isOpened():
+             raise VideoOpenError   # Se non riesce ad aprire il video dal path allora c'è un problema
 
 
     def get_frame(self) -> np.ndarray:

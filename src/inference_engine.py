@@ -4,12 +4,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
-
-try:
-    from tensorflow.keras.models import load_model
-except Exception:
-    
-    load_model = None
+from keras.models import load_model
 
 
 class InferenceEngine:

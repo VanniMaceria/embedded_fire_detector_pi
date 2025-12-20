@@ -1,4 +1,5 @@
 import paho.mqtt.client as mqtt
+import json
 
 class AlertNotifier:
     """Gestisce la comunicazione con il server esterno."""
@@ -16,4 +17,14 @@ class AlertNotifier:
         Invia una messaggio MQTT
         Restituisce True se l'invio ha successo.
         """
-        pass
+
+        data = {
+            "status": "FIRE_DETECTED",
+            "timestamp": timestamp,
+            "probability": confidence
+        }
+
+        payload = json.dumps(data)    # Converte in stringa JSON
+        self.client.publish(self.topic, payload)     # Invia al broker
+
+        return True

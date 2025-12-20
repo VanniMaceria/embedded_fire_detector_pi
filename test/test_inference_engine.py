@@ -32,7 +32,6 @@ class TestInferenceEngine(TestCase):
         self.assertLessEqual(prob, 1.0)
         fake_model.predict.assert_called()
 
-        # Verifica che il batch passato abbia la shape (1,64,64,3)
         call_args = fake_model.predict.call_args
         self.assertIsNotNone(call_args)
         batch_arg = call_args[0][0]

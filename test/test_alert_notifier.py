@@ -71,3 +71,18 @@ class TestAlertNotifier(TestCase):
         self.assertTrue(notifier.is_alert_active)
         # Controllo Comportamento: NON deve inviare nulla (evita spam)
         mock_instance.publish.assert_not_called()
+
+    @patch.object(mqtt, 'Client')
+    def test_resets_alert_state_when_fire_is_no_longer_detected(self, mock_client_class):
+        # --- ARRANGE ---
+        mock_client_class.return_value = MagicMock()
+        notifier = AlertNotifier(broker="localhost", topic="test")
+
+        notifier.is_alert_active = True
+
+        # --- ACT ---
+        notifier.notify(fire_detected=False, timestamp="12:00:00", confidence=0.0)
+
+        # --- ASSERT ---
+        # Verifichiamo che lo stato sia tornato False
+        self.assertFalse(notifier.is_alert_active)

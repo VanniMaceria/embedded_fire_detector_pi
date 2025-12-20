@@ -10,3 +10,5 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+
+src/real_time_detection.py

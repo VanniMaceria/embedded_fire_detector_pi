@@ -29,3 +29,11 @@ class AlertNotifier:
 
         return True
 
+    def notify(self, fire_detected: bool, timestamp: str, confidence: float):
+        """
+        Gestisce la logica di stato per evitare spam.
+        """
+        if fire_detected:   # Se viene rilevato un incendio
+            if not self.is_alert_active:    # E non è stato mandato l'avviso, pubblica su MQTT
+                self.publish_via_mqtt(timestamp, confidence)
+                self.is_alert_active = True

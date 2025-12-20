@@ -28,3 +28,4 @@ class AlertNotifier:
         self.client.publish(self.topic, payload)     # Invia al broker
 
         return True
+

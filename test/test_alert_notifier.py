@@ -38,3 +38,36 @@ class TestAlertNotifier(TestCase):
         # --- ASSERT ---
         mock_instance.publish.assert_called_once_with(topic, ANY)
         self.assertTrue(outcome)
+
+    @patch.object(mqtt, 'Client')
+    def test_notify_does_not_send_mqtt_pub_multiple_times_when_fire_is_detected(self, mock_client_class):
+        # --- ARRANGE ---
+        mock_instance = MagicMock()
+        mock_client_class.return_value = mock_instance
+
+        notifier = AlertNotifier(broker="localhost", topic="test")
+
+        # Stato iniziale: False
+        self.assertFalse(notifier.is_alert_active)
+
+        # --- ACT 1: PRIMO RILEVAMENTO (Fuoco SI) ---
+        notifier.notify(fire_detected=True, timestamp="10:00:00", confidence=0.90)
+
+        # --- ASSERT 1 ---
+        # Controllo Stato: Deve essere attivo
+        self.assertTrue(notifier.is_alert_active)
+        # Controllo Comportamento: Il messaggio deve essere partito davvero
+        mock_instance.publish.assert_called_once()
+
+        # --- RESET MOCK ---
+        # Puliamo la memoria del mock per il prossimo step
+        mock_instance.publish.reset_mock()
+
+        # --- ACT 2: RILEVAMENTO CONSECUTIVO (Fuoco SI) ---
+        notifier.notify(fire_detected=True, timestamp="10:00:01", confidence=0.92)
+
+        # --- ASSERT 2 ---
+        # Controllo Stato: Deve rimanere attivo
+        self.assertTrue(notifier.is_alert_active)
+        # Controllo Comportamento: NON deve inviare nulla (evita spam)
+        mock_instance.publish.assert_not_called()

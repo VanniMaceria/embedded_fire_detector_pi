@@ -3,7 +3,8 @@ from unittest.mock import patch, MagicMock
 import paho.mqtt.client as mqtt
 from src.alert_notifier import AlertNotifier
 from unittest.mock import ANY
-import mock.GPIO as GPIO
+import mocks.GPIO as GPIO
+
 
 class TestAlertNotifier(TestCase):
 

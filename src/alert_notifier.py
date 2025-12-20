@@ -21,7 +21,6 @@ class AlertNotifier:
         GPIO.setup(self.BUZZER_PIN, GPIO.OUT)
         self.broker = broker
         self.topic = topic
-
         self.is_alert_active = False    # Stato interno: serve ancora per non mandare 1000 messaggi al secondo
         self.client = mqtt.Client()
         self.client.connect(self.broker)    # Prova a connettersi quando si chiama il costruttore
@@ -56,3 +55,4 @@ class AlertNotifier:
 
         else:   # In assenza di incendio la notifica deve essere posta a falso
             self.is_alert_active = False
+

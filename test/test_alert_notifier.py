@@ -104,3 +104,19 @@ class TestAlertNotifier(TestCase):
         self.assertTrue(notifier.is_alert_active)   # Output indiretto
         mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, True)    # Output diretto
 
+    @patch('src.alert_notifier.mqtt.Client')
+    @patch.object(GPIO, "output")
+    def test_buzzer_is_turned_off_when_fire_is_not_detected(self, mock_buzzer, mock_mqtt_class):
+        # --- ARRANGE ---
+        mock_mqtt_class.return_value = MagicMock()
+
+        notifier = AlertNotifier(broker="localhost", topic="test")
+        notifier.is_alert_active = True
+
+        # --- ACT ---
+        notifier.notify(fire_detected=False, timestamp="12:00:00", confidence=0.9)
+
+        # --- ASSERT ---
+        self.assertFalse(notifier.is_alert_active)  # Output indiretto
+        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, False)  # Output diretto
+

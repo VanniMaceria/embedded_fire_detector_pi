@@ -13,7 +13,7 @@ The system is modularized into five core components:
 * **`ImageProcessor`**: Pre-processing and input sanitization.
 * **`InferenceEngine`**: Wrapper for the ML model.
 * **`FireMonitor`**: Main orchestrator controlling the logic loop.
-* **`AlertNotifier`**: Handles HTTP/REST API communication.
+* **`AlertNotifier`**: Handles MQTT communication.
 
 ## 🛡 IoT Security: Adversarial Attacks
 This project demonstrates vulnerabilities in IoT AI based solutions and implements defenses.

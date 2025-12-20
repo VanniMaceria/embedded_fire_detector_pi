@@ -11,7 +11,7 @@ class AlertNotifier:
         self.client = mqtt.Client()
         self.client.connect(self.broker)    # Prova a connettersi quando si chiama il costruttore
 
-    def send_alert(self, timestamp: str, confidence: float) -> bool:
+    def publish_via_mqtt(self, timestamp: str, confidence: float) -> bool:
         """
         Invia una messaggio MQTT
         Restituisce True se l'invio ha successo.

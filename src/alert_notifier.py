@@ -37,5 +37,7 @@ class AlertNotifier:
             if not self.is_alert_active:    # E non è stato mandato l'avviso, pubblica su MQTT
                 self.publish_via_mqtt(timestamp, confidence)
                 self.is_alert_active = True
-        else:
+            # Se c'è fuoco e la notifica è stata già inviata non fare niente
+
+        else:   # In assenza di incendio la notifica deve essere posta a falso
             self.is_alert_active = False

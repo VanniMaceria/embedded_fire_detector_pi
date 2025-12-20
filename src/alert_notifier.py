@@ -11,6 +11,7 @@ class AlertNotifier:
         self.is_alert_active = False    # Stato interno: serve ancora per non mandare 1000 messaggi al secondo
         self.client = mqtt.Client()
         self.client.connect(self.broker)    # Prova a connettersi quando si chiama il costruttore
+        self.BUZZER_PIN = 20
 
     def publish_via_mqtt(self, timestamp: str, confidence: float) -> bool:
         """

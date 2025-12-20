@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import paho.mqtt.client as mqtt
 from src.alert_notifier import AlertNotifier
 from unittest.mock import ANY
-
+import mock.GPIO as GPIO
 
 class TestAlertNotifier(TestCase):
 
@@ -86,3 +86,21 @@ class TestAlertNotifier(TestCase):
         # --- ASSERT ---
         # Verifichiamo che lo stato sia tornato False
         self.assertFalse(notifier.is_alert_active)
+
+
+    @patch('src.alert_notifier.mqtt.Client')
+    @patch.object(GPIO, "output")
+    def test_buzzer_is_ringing_when_fire_is_detected(self, mock_buzzer, mock_mqtt_class):
+        # --- ARRANGE ---
+        mock_mqtt_class.return_value = MagicMock()
+        mock_buzzer.return_value = True
+
+        notifier = AlertNotifier(broker="localhost", topic="test")
+
+        # --- ACT ---
+        notifier.notify(fire_detected=True, timestamp="12:00:00", confidence=0.9)
+
+        # --- ASSERT ---
+        self.assertTrue(notifier.is_alert_active)
+        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, True)
+

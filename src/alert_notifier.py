@@ -55,4 +55,4 @@ class AlertNotifier:
 
         else:   # In assenza di incendio la notifica deve essere posta a falso
             self.is_alert_active = False
-
+            GPIO.output(self.BUZZER_PIN, GPIO.LOW)

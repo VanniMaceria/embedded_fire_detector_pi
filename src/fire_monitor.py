@@ -3,7 +3,7 @@ from src.frame_provider import FrameProvider
 from src.image_processor import ImageProcessor
 from src.inference_engine import InferenceEngine
 
-
+# non dimentichiamo di citare gli autori del modello
 class FireMonitor:
     """
     Classe principale (Controller).

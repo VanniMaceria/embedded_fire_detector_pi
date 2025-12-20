@@ -37,3 +37,5 @@ class AlertNotifier:
             if not self.is_alert_active:    # E non è stato mandato l'avviso, pubblica su MQTT
                 self.publish_via_mqtt(timestamp, confidence)
                 self.is_alert_active = True
+        else:
+            self.is_alert_active = False

@@ -94,7 +94,6 @@ class TestAlertNotifier(TestCase):
     def test_buzzer_is_ringing_when_fire_is_detected(self, mock_buzzer, mock_mqtt_class):
         # --- ARRANGE ---
         mock_mqtt_class.return_value = MagicMock()
-        mock_buzzer.return_value = True
 
         notifier = AlertNotifier(broker="localhost", topic="test")
 
@@ -102,6 +101,6 @@ class TestAlertNotifier(TestCase):
         notifier.notify(fire_detected=True, timestamp="12:00:00", confidence=0.9)
 
         # --- ASSERT ---
-        self.assertTrue(notifier.is_alert_active)
-        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, True)
+        self.assertTrue(notifier.is_alert_active)   # Output indiretto
+        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, True)    # Output diretto
 

@@ -1,6 +1,7 @@
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 import numpy as np
+from mock.mock import ANY
 import src.inference_engine as ie_module
 from pathlib import Path
 
@@ -24,7 +25,11 @@ class TestInferenceEngine(TestCase):
         # --- ASSERT ---
         # Verifichiamo che load_model sia stato chiamato con il percorso corretto
         expected_path = str(Path("models/dummy.h5"))
-        mock_load_model.assert_called_once_with(expected_path)
+        mock_load_model.assert_called_once_with(
+            expected_path,
+            custom_objects=ANY,
+            compile=False
+        )
 
     @patch.object(ie_module, 'load_model')
     @patch('pathlib.Path.exists')

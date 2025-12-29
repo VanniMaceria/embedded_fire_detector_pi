@@ -11,5 +11,4 @@ __pycache__/
 .vscode/
 .idea/
 
-src/real_time_detection.py
 dataset/*

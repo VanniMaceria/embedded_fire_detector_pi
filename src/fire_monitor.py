@@ -5,7 +5,6 @@ import time
 from collections import deque
 import numpy as np
 
-# Importiamo i tuoi moduli
 from src.frame_provider import FrameProvider
 from src.image_processor import ImageProcessor
 from src.inference_engine import InferenceEngine
@@ -78,7 +77,11 @@ class FireMonitor:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 # 6. Notifica (MQTT + Buzzer) - invio la conf. media
-                self.alert_notifier.notify(is_fire, timestamp, avg_confidence)
+                self.alert_notifier.notify(
+                    fire_detected=is_fire,
+                    timestamp=timestamp,
+                    confidence=avg_confidence
+                )
 
                 # 7. Visualizzazione a schermo (passo fps e media)
                 self._display_frame(frame, is_fire, avg_confidence, fps)
@@ -101,10 +104,7 @@ class FireMonitor:
             self._cleanup()
 
     def _display_frame(self, frame, is_fire, confidence, fps=0.0):
-        """Visualizza il frame con etichette, barra visiva e FPS.
-
-        `confidence` è in 0..1 (media smoothing). Verrà mostrata in percentuale.
-        """
+        """Visualizza il frame con etichette, barra visiva e FPS."""
         display = frame.copy()
         h, w, _ = display.shape
 
@@ -146,10 +146,7 @@ class FireMonitor:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", required=True, help="Percorso del video")
-
-    # Default al tuo nuovo modello personalizzato
     parser.add_argument("--model", default="models/fire_model.tflite", help="Percorso del modello .tflite")
-
     parser.add_argument("--broker", default="broker.emqx.io", help="Broker MQTT")
     parser.add_argument("--topic", default="allarme/incendio", help="Topic MQTT")
     args = parser.parse_args()

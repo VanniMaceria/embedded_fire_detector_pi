@@ -15,7 +15,7 @@ class TestImageProcessor(TestCase):
 
         # ASSERT: dimensione, tipo e range di valori
         self.assertIsInstance(out, np.ndarray)
-        self.assertEqual(out.shape, (64, 64, 3))
+        self.assertEqual(out.shape, (224, 224, 3))
         self.assertTrue(np.issubdtype(out.dtype, np.floating))
         self.assertGreaterEqual(out.min(), 0.0)
         self.assertLessEqual(out.max(), 1.0)

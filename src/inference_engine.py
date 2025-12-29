@@ -1,141 +1,63 @@
-"""
-NOTA SULLE MODIFICHE (FIX COMPATIBILITÀ KERAS 3):
-Questo file è stato modificato per permettere il caricamento di un modello .h5 legacy (creato con Keras 2)
-su un ambiente moderno con Keras 3 / TensorFlow 2.x.
-
-PROBLEMA RISCONTRATO:
-Il modello originale includeva parametri di configurazione non più supportati o gestiti diversamente
-in Keras 3, causando due errori critici:
-1. "TypeError: unexpected keyword argument 'dtype'": Keras 3 non accetta `dtype` negli inizializzatori.
-2. "ValueError: Kernel shape must have the same length as input": Errore di dimensione (Rank 5 vs 4) dovuto
-   a come Keras 3 interpreta l'input_shape salvata nei vecchi file .h5 (aggiungendo una batch dim extra).
-
-SOLUZIONE APPLICATA (MONKEY PATCHING):
-Abbiamo creato delle classi wrapper "Patched" (PatchedGlorotUniform, PatchedZeros, PatchedConv2D) che:
-1. Intercettano la configurazione dal file .h5.
-2. Rimuovono i parametri problematici ('dtype') o correggono le dimensioni dell'input ('batch_input_shape').
-3. Vengono iniettate nel metodo `load_model` tramite il dizionario `custom_objects`, sostituendo al volo
-   le classi standard di Keras durante il caricamento.
-"""
-
 import os
-from pathlib import Path
-from typing import Optional
 import numpy as np
 
-# Importiamo Keras e i componenti da patchare
+# Gestione import (PC vs Raspberry)
 try:
-    from keras.models import load_model
-    from keras.initializers import GlorotUniform, Zeros
-    from keras.layers import Conv2D
+    import tflite_runtime.interpreter as tflite
 except ImportError:
-    load_model = None
-    GlorotUniform = object
-    Zeros = object
-    Conv2D = object
+    try:
+        import tensorflow.lite as tflite
+    except ImportError:
+        raise ImportError("Manca la libreria TFLite.")
 
-
-# --- FIX CRITICO PER KERAS 3 (Compatibilità Modelli Legacy) ---
-
-class PatchedGlorotUniform(GlorotUniform):
-    """Rimuove il parametro 'dtype' non più supportato in Keras 3."""
-
-    def __init__(self, *args, **kwargs):
-        kwargs.pop('dtype', None)
-        super().__init__(*args, **kwargs)
-
-
-class PatchedZeros(Zeros):
-    """Rimuove il parametro 'dtype' non più supportato in Keras 3."""
-
-    def __init__(self, *args, **kwargs):
-        kwargs.pop('dtype', None)
-        super().__init__(*args, **kwargs)
-
-
-class PatchedConv2D(Conv2D):
-    """
-    Corregge l'errore di dimensione dell'input (Rank 5 vs Rank 4).
-    I modelli vecchi salvavano input_shape=[None, 64, 64, 3].
-    Keras 3 lo interpreta male aggiungendo un altro batch dim.
-    Questa classe rimuove il 'None' iniziale dalla configurazione.
-    """
-
-    @classmethod
-    def from_config(cls, config):
-        # Controlliamo se c'è un input_shape "sporco" con il batch dimension (None)
-        if 'batch_input_shape' in config:
-            shape = config['batch_input_shape']
-            if isinstance(shape, list) and len(shape) == 4 and shape[0] is None:
-                # Trasformiamo [None, 64, 64, 3] in [64, 64, 3]
-                config['batch_input_shape'] = shape
-                if 'input_shape' in config:
-                    del config['input_shape']
-
-        if 'input_shape' in config:
-            shape = config['input_shape']
-            if isinstance(shape, list) and len(shape) == 4 and shape[0] is None:
-                config['input_shape'] = shape[1:]  # Rimuovi il primo elemento (None)
-
-        return super().from_config(config)
-
-
-# --------------------------------
 
 class InferenceEngine:
-    """Wrapper per il modello di ML."""
+    """
+    Motore di inferenza TFLite puro.
+    Restituisce direttamente la probabilità di incendio (0.0 - 1.0).
+    """
 
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: str = None):
         if model_path is None:
-            model_path = os.path.join("models", "Fire-64x64-color-v7-soft.h5")
+            model_path = os.path.join("models", "fire_model.tflite")
 
-        model_file = Path(model_path)
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Modello non trovato: {model_path}")
 
-        if not model_file.exists():
-            raise FileNotFoundError(f"Modello non trovato: {model_file}")
+        print(f"[INFO] Caricamento TFLite: {model_path}")
 
-        if load_model is None:
-            raise RuntimeError("Keras/TensorFlow non installato.")
+        self.interpreter = tflite.Interpreter(model_path=model_path)
+        self.interpreter.allocate_tensors()
 
-        print(f"[INFO] Caricamento modello (Patch Keras 3 attiva): {model_file}")
+        # Dettagli input/output
+        self.input_details = self.interpreter.get_input_details()
+        self.output_details = self.interpreter.get_output_details()
 
-        # Dizionario di sostituzione per le classi problematiche
-        custom_objects = {
-            'GlorotUniform': PatchedGlorotUniform,
-            'Zeros': PatchedZeros,
-            'Conv2D': PatchedConv2D,  # Sostituiamo anche Conv2D!
-        }
+        self.input_index = self.input_details[0]['index']
+        self.output_index = self.output_details[0]['index']
 
-        try:
-            self.model = load_model(
-                str(model_file),
-                custom_objects=custom_objects,
-                compile=False
-            )
-        except Exception as e:
-            # Fallback estremo: a volte Keras ha bisogno di config pulite manualmente
-            print(f"[WARN] Primo tentativo fallito: {e}. Riprovo ignorando input shape...")
-            raise RuntimeError(f"Impossibile caricare il modello legacy: {e}")
+        # Espone le dimensioni per il FireMonitor
+        self.input_shape = self.input_details[0]['shape']
+        self.height = self.input_shape[1]
+        self.width = self.input_shape[2]
 
     def predict(self, processed_image: np.ndarray) -> float:
-        """Esegue l'inferenza."""
-        if self.model is None:
-            raise RuntimeError("Modello non caricato")
+        """
+        Input: Immagine RGB 224x224 normalizzata (0-1).
+        Output: Probabilità incendio (float).
+        """
+        img = processed_image.astype(np.float32)
 
-        img = np.array(processed_image)
+        # Aggiungi dimensione batch (1, H, W, 3)
+        if img.ndim == 3:
+            img = np.expand_dims(img, axis=0)
 
-        # Aggiungi dimensione batch (1, 64, 64, 3)
-        batch = np.expand_dims(img, axis=0)
+        self.interpreter.set_tensor(self.input_index, img)
+        self.interpreter.invoke()
 
-        # Predizione silenziosa
-        preds = self.model.predict(batch, verbose=0)
+        output_data = self.interpreter.get_tensor(self.output_index)
 
-        try:
-            prob = float(np.asarray(preds).reshape(-1)[0])
-        except Exception:
-            raise RuntimeError("Output non interpretabile")
+        # Il valore è già P(Classe 1), cioè P(Fire)
+        val = float(output_data.flatten()[0])
 
-        if 1.0 < prob <= 100.0:
-            prob = prob / 100.0
-
-        return max(0.0, min(1.0, prob))
+        return val

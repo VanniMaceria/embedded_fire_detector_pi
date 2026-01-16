@@ -12,10 +12,11 @@ from src.alert_notifier import AlertNotifier
 
 
 class FireMonitor:
-    def __init__(self, video_path: str, model_path: str, broker_ip: str, topic: str):
+    def __init__(self, video_path: str, model_path: str):
         print(f"[INFO] Avvio Sistema Antincendio...")
 
         self.inference_engine = InferenceEngine(model_path=model_path)
+        self.alert_notifier = AlertNotifier()
 
         req_w = getattr(self.inference_engine, 'width', 224)
         req_h = getattr(self.inference_engine, 'height', 224)
@@ -24,7 +25,6 @@ class FireMonitor:
         self.image_processor = ImageProcessor(target_size=(req_w, req_h))
 
         self.frame_provider = FrameProvider(path=video_path)
-        self.alert_notifier = AlertNotifier(broker=broker_ip, topic=topic)
 
         # determina l'FPS del video sorgente (fallback 25)
         cap = getattr(self.frame_provider, "capturer", None)
@@ -147,8 +147,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", required=True, help="Percorso del video")
     parser.add_argument("--model", default="models/fire_model.tflite", help="Percorso del modello .tflite")
-    parser.add_argument("--broker", default="broker.emqx.io", help="Broker MQTT")
-    parser.add_argument("--topic", default="allarme/incendio", help="Topic MQTT")
+    #parser.add_argument("--broker", default="broker.emqx.io", help="Broker MQTT")
+    #parser.add_argument("--topic", default="allarme/incendio", help="Topic MQTT")
     args = parser.parse_args()
 
-    FireMonitor(args.video, args.model, args.broker, args.topic).run()
+    FireMonitor(args.video, args.model).run()

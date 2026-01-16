@@ -1,7 +1,10 @@
-import paho.mqtt.client as mqtt
 import json
+import logging
+from typing import Optional
 
-DEPLOYMENT = False  # This variable is to understand whether you are deploying on the actual hardware
+import paho.mqtt.client as mqtt
+
+DEPLOYMENT = False
 
 try:
     import RPi.GPIO as GPIO
@@ -11,36 +14,84 @@ except:
     import mocks.GPIO as GPIO
     import mocks.board as board
 
+logging.basicConfig(level=logging.INFO)
+
 
 class AlertNotifier:
     """Gestisce la comunicazione con il server esterno."""
     BUZZER_PIN = 20
 
-    def __init__(self, broker: str, topic: str):
+    def __init__(self):
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.BUZZER_PIN, GPIO.OUT)
-        self.broker = broker
-        self.topic = topic
-        self.is_alert_active = False    # Stato interno: serve ancora per non mandare 1000 messaggi al secondo
-        self.client = mqtt.Client()
-        self.client.connect(self.broker)    # Prova a connettersi quando si chiama il costruttore
+
+        self.mqtt_server = "LOCAL_MQTT_SERVER"
+        self.mqtt_port = 1884
+        self.mqtt_clientID = "FireDetectorES"
+        self.mqtt_username = "FireDetectorUser"
+        self.mqtt_password = "FireDetectorPassword"
+        self.topic = "v1/devices/me/telemetry"
+
+        self.is_alert_active = False
+        self.client = mqtt.Client(client_id=self.mqtt_clientID)
+
+        if self.mqtt_username:
+            self.client.username_pw_set(self.mqtt_username, self.mqtt_password)
+
+        self._connected = False
+        self.client.on_connect = self._on_connect
+        self.client.on_disconnect = self._on_disconnect
+
+        self.client.loop_start()
+        try:
+            attempts = 0
+            max_attempts = 3
+            while attempts < max_attempts and not self._connected:
+                logging.info("Connecting to MQTT broker (attempt %d)...", attempts + 1)
+                try:
+                    self.client.connect(self.mqtt_server, self.mqtt_port, keepalive=60)
+                except Exception:
+                    logging.exception("MQTT connect exception")
+                attempts += 1
+        except Exception:
+            logging.exception("MQTT initial connect failed")
+
+    def _on_connect(self, client, userdata, flags, rc):
+        if rc == 0:
+            self._connected = True
+            logging.info("MQTT connected to %s:%s", self.mqtt_server, self.mqtt_port)
+        else:
+            logging.error("MQTT connection failed with rc=%s", rc)
+
+    def _on_disconnect(self, client, userdata, rc):
+        self._connected = False
+        logging.info("MQTT disconnected (rc=%s)", rc)
 
     def publish_via_mqtt(self, timestamp: str, confidence: float) -> bool:
         """
-        Invia una messaggio MQTT
-        Restituisce True se l'invio ha successo.
+        Invia un messaggio MQTT con la forma:
+        {"status":"FIRE_DETECTED","timestamp":"...","probability":...}
         """
-
         data = {
             "status": "FIRE_DETECTED",
             "timestamp": timestamp,
             "probability": confidence
         }
 
-        payload = json.dumps(data)    # Converte in stringa JSON
-        self.client.publish(self.topic, payload)     # Invia al broker
+        payload = json.dumps(data)
+        try:
+            if not self._connected:
+                try:
+                    self.client.reconnect()
+                except Exception:
+                    logging.exception("Reconnect failed before publish")
 
-        return True
+            self.client.publish(self.topic, payload)
+            logging.info("Published alert to %s: %s", self.topic, payload)
+            return True
+        except Exception:
+            logging.exception("Publish failed")
+            return False
 
     def notify(self, fire_detected: bool, timestamp: str, confidence: float):
         """

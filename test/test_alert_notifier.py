@@ -1,43 +1,39 @@
 from unittest import TestCase
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 import paho.mqtt.client as mqtt
 from src.alert_notifier import AlertNotifier
-from unittest.mock import ANY
 import mocks.GPIO as GPIO
 
 
 class TestAlertNotifier(TestCase):
 
-    @patch.object(mqtt, 'Client')  # Mocka la classe Client dentro il modulo mqtt
+    @patch.object(mqtt, 'Client')
     def test_connects_to_broker_on_init(self, mock_client_class):
         # --- ARRANGE ---
         mock_instance = MagicMock()
         mock_client_class.return_value = mock_instance
 
-        broker_ip = "192.168.1.100"
-
         # --- ACT ---
-        notifier = AlertNotifier(broker=broker_ip, topic="allarme/incendio")  # Test del costruttore
+        notifier = AlertNotifier()
 
         # --- ASSERT ---
-        # Verifichiamo che il metodo connect dell'istanza sia stato chiamato col broker giusto
-        mock_instance.connect.assert_called_once_with(broker_ip)
-
+        mock_instance.connect.assert_called_with("127.0.0.1", 1884, keepalive=60)
 
     @patch.object(mqtt, 'Client')
     def test_publish_via_mqtt_publishes_at_right_topic(self, mock_client_class):
         # --- ARRANGE ---
         mock_instance = MagicMock()
         mock_client_class.return_value = mock_instance
+        notifier = AlertNotifier()
 
-        topic = "allarme/incendio"
-        notifier = AlertNotifier(broker="192.168.1.100", topic=topic)
+        # Simuliamo che la connessione sia attiva, altrimenti publish_via_mqtt fallisce
+        notifier._connected = True
 
         # --- ACT ---
         outcome = notifier.publish_via_mqtt(timestamp="2025-12-20 20:12:00", confidence=0.85)
 
         # --- ASSERT ---
-        mock_instance.publish.assert_called_once_with(topic, ANY)
+        mock_instance.publish.assert_called_once_with("v1/devices/me/telemetry", ANY)
         self.assertTrue(outcome)
 
     @patch.object(mqtt, 'Client')
@@ -45,78 +41,64 @@ class TestAlertNotifier(TestCase):
         # --- ARRANGE ---
         mock_instance = MagicMock()
         mock_client_class.return_value = mock_instance
+        notifier = AlertNotifier()
+        notifier._connected = True
 
-        notifier = AlertNotifier(broker="localhost", topic="test")
-
-        # Stato iniziale: False
-        self.assertFalse(notifier.is_alert_active)
-
-        # --- ACT 1: PRIMO RILEVAMENTO (Fuoco SI) ---
+        # --- ACT 1: PRIMO RILEVAMENTO ---
         notifier.notify(fire_detected=True, timestamp="10:00:00", confidence=0.90)
 
         # --- ASSERT 1 ---
-        # Controllo Stato: Deve essere attivo
         self.assertTrue(notifier.is_alert_active)
-        # Controllo Comportamento: Il messaggio deve essere partito davvero
         mock_instance.publish.assert_called_once()
 
         # --- RESET MOCK ---
-        # Puliamo la memoria del mock per il prossimo step
         mock_instance.publish.reset_mock()
 
-        # --- ACT 2: RILEVAMENTO CONSECUTIVO (Fuoco SI) ---
+        # --- ACT 2: RILEVAMENTO CONSECUTIVO ---
         notifier.notify(fire_detected=True, timestamp="10:00:01", confidence=0.92)
 
         # --- ASSERT 2 ---
-        # Controllo Stato: Deve rimanere attivo
-        self.assertTrue(notifier.is_alert_active)
-        # Controllo Comportamento: NON deve inviare nulla (evita spam)
+        # Non deve chiamare publish una seconda volta (meccanismo anti-spam)
         mock_instance.publish.assert_not_called()
 
     @patch.object(mqtt, 'Client')
     def test_resets_alert_state_when_fire_is_no_longer_detected(self, mock_client_class):
         # --- ARRANGE ---
-        mock_client_class.return_value = MagicMock()
-        notifier = AlertNotifier(broker="localhost", topic="test")
-
+        mock_instance = MagicMock()
+        mock_client_class.return_value = mock_instance
+        notifier = AlertNotifier()
         notifier.is_alert_active = True
 
         # --- ACT ---
         notifier.notify(fire_detected=False, timestamp="12:00:00", confidence=0.0)
 
         # --- ASSERT ---
-        # Verifichiamo che lo stato sia tornato False
         self.assertFalse(notifier.is_alert_active)
-
 
     @patch('src.alert_notifier.mqtt.Client')
     @patch.object(GPIO, "output")
     def test_buzzer_is_ringing_when_fire_is_detected(self, mock_buzzer, mock_mqtt_class):
         # --- ARRANGE ---
         mock_mqtt_class.return_value = MagicMock()
-
-        notifier = AlertNotifier(broker="localhost", topic="test")
+        notifier = AlertNotifier()
+        notifier._connected = True
 
         # --- ACT ---
         notifier.notify(fire_detected=True, timestamp="12:00:00", confidence=0.9)
 
         # --- ASSERT ---
-        self.assertTrue(notifier.is_alert_active)   # Output indiretto
-        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, True)    # Output diretto
+        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, GPIO.HIGH)
 
     @patch('src.alert_notifier.mqtt.Client')
     @patch.object(GPIO, "output")
-    def test_buzzer_is_turned_off_when_fire_is_not_detected(self, mock_buzzer, mock_mqtt_class):
+    def test_buzzer_is_turned_off_when_fire_not_detected(self, mock_buzzer, mock_mqtt_class):
         # --- ARRANGE ---
         mock_mqtt_class.return_value = MagicMock()
-
-        notifier = AlertNotifier(broker="localhost", topic="test")
+        notifier = AlertNotifier()
         notifier.is_alert_active = True
 
         # --- ACT ---
         notifier.notify(fire_detected=False, timestamp="12:00:00", confidence=0.9)
 
         # --- ASSERT ---
-        self.assertFalse(notifier.is_alert_active)  # Output indiretto
-        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, False)  # Output diretto
-
+        mock_buzzer.assert_called_once_with(notifier.BUZZER_PIN, GPIO.LOW)

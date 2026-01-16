@@ -25,7 +25,7 @@ class AlertNotifier:
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.BUZZER_PIN, GPIO.OUT)
 
-        self.mqtt_server = "LOCAL_MQTT_SERVER"
+        self.mqtt_server = "127.0.0.1"
         self.mqtt_port = 1884
         self.mqtt_clientID = "FireDetectorES"
         self.mqtt_username = "FireDetectorUser"

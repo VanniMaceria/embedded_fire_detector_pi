@@ -1,7 +1,5 @@
 import json
 import logging
-from typing import Optional
-
 import paho.mqtt.client as mqtt
 
 DEPLOYMENT = False
@@ -56,14 +54,14 @@ class AlertNotifier:
         except Exception:
             logging.exception("MQTT initial connect failed")
 
-    def _on_connect(self, client, userdata, flags, rc):
+    def _on_connect(self, rc):
         if rc == 0:
             self._connected = True
             logging.info("MQTT connected to %s:%s", self.mqtt_server, self.mqtt_port)
         else:
             logging.error("MQTT connection failed with rc=%s", rc)
 
-    def _on_disconnect(self, client, userdata, rc):
+    def _on_disconnect(self, rc):
         self._connected = False
         logging.info("MQTT disconnected (rc=%s)", rc)
 

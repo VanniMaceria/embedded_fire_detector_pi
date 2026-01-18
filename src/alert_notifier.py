@@ -1,28 +1,44 @@
 import json
 import logging
 import paho.mqtt.client as mqtt
-
-DEPLOYMENT = False
+import time
 
 try:
     import RPi.GPIO as GPIO
-    import board
-    DEPLOYMENT = True
-except:
+    GPIO_MOCK = False
+except (ImportError, RuntimeError):
     import mocks.GPIO as GPIO
+    GPIO_MOCK = True
+
+try:
+    import board
+except (ImportError, RuntimeError):
     import mocks.board as board
 
-logging.basicConfig(level=logging.INFO)
+DEPLOYMENT = not GPIO_MOCK
+
+# Configurazione logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
 
 
 class AlertNotifier:
-    """Gestisce la comunicazione con il server esterno."""
-    BUZZER_PIN = 20
+    """Gestisce l'allarme acustico e la comunicazione MQTT con il broker."""
 
     def __init__(self):
-        GPIO.setmode(GPIO.BOARD)
+        # Configurazione Hardware (Pin BCM 17 / Fisico 11)
+        self.BUZZER_PIN = 17
+        GPIO.setwarnings(False)
+        GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.BUZZER_PIN, GPIO.OUT)
 
+        if GPIO_MOCK:
+            logging.warning("ATTENZIONE: Modulo RPi.GPIO non trovato. Il buzzer FISICO non suonerà (MODALITÀ MOCK).")
+        else:
+            logging.info("Hardware GPIO rilevato. Allarme fisico pronto.")
+
+        self.pwm = GPIO.PWM(self.BUZZER_PIN, 440)
+
+        #Parametri di Rete
         self.mqtt_server = "127.0.0.1"
         self.mqtt_port = 1884
         self.mqtt_clientID = "FireDetectorES"
@@ -30,78 +46,83 @@ class AlertNotifier:
         self.mqtt_password = "FireDetectorPassword"
         self.topic = "v1/devices/me/telemetry"
 
+        # Stato Allarme e Timer
         self.is_alert_active = False
-        self.client = mqtt.Client(client_id=self.mqtt_clientID)
+        self.last_alarm_trigger_time = 0  # Ultimo istante in cui è stato visto il fuoco
+        self.min_alarm_duration = 2.0  # Durata minima allarme in secondi
+        self._connected = False
 
+        # Configurazione Client MQTT
+        self.client = mqtt.Client(client_id=self.mqtt_clientID)
         if self.mqtt_username:
             self.client.username_pw_set(self.mqtt_username, self.mqtt_password)
 
-        self._connected = False
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
 
-        self.client.loop_start()
+        # Avvio MQTT Asincrono (Non blocca se il container è spento)
         try:
-            attempts = 0
-            max_attempts = 3
-            while attempts < max_attempts and not self._connected:
-                logging.info("Connecting to MQTT broker (attempt %d)...", attempts + 1)
-                try:
-                    self.client.connect(self.mqtt_server, self.mqtt_port, keepalive=60)
-                except Exception:
-                    logging.exception("MQTT connect exception")
-                attempts += 1
-        except Exception:
-            logging.exception("MQTT initial connect failed")
+            logging.info("Inizializzazione MQTT asincrona (Porta 1884)...")
+            self.client.connect_async(self.mqtt_server, self.mqtt_port, keepalive=60)
+            self.client.loop_start()
+        except Exception as e:
+            logging.error(f"Errore setup MQTT: {e}")
 
-    def _on_connect(self, rc):
+    def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             self._connected = True
-            logging.info("MQTT connected to %s:%s", self.mqtt_server, self.mqtt_port)
+            logging.info(f"MQTT Connesso con successo alla porta {self.mqtt_port}")
         else:
-            logging.error("MQTT connection failed with rc=%s", rc)
+            logging.error(f"Connessione MQTT fallita (codice: {rc})")
 
-    def _on_disconnect(self, rc):
+    def _on_disconnect(self, client, userdata, rc):
         self._connected = False
-        logging.info("MQTT disconnected (rc=%s)", rc)
+        logging.warning("Scollegato dal broker MQTT")
 
-    def publish_via_mqtt(self, timestamp: str, confidence: float) -> bool:
-        """
-        Invia un messaggio MQTT con la forma:
-        {"status":"FIRE_DETECTED","timestamp":"...","probability":...}
-        """
+    def publish_via_mqtt(self, timestamp: str, confidence: float):
+        """Invia i dati al broker se connesso."""
+        if not self._connected:
+            return  # Evita di tentare reconnect bloccanti durante il loop video
+
         data = {
             "status": "FIRE_DETECTED",
             "timestamp": timestamp,
-            "probability": confidence
+            "probability": round(confidence, 4)
         }
-
         payload = json.dumps(data)
-        try:
-            if not self._connected:
-                try:
-                    self.client.reconnect()
-                except Exception:
-                    logging.exception("Reconnect failed before publish")
+        self.client.publish(self.topic, payload)
+        logging.info(f"Dati inviati al broker: {payload}")
 
-            self.client.publish(self.topic, payload)
-            logging.info("Published alert to %s: %s", self.topic, payload)
-            return True
-        except Exception:
-            logging.exception("Publish failed")
-            return False
+        return True
 
     def notify(self, fire_detected: bool, timestamp: str, confidence: float):
-        """
-        Gestisce la logica di stato per evitare spam.
-        """
-        if fire_detected:   # Se viene rilevato un incendio
-            if not self.is_alert_active:    # E non è stato mandato l'avviso, pubblica su MQTT
-                self.publish_via_mqtt(timestamp, confidence)
-                self.is_alert_active = True
-                GPIO.output(self.BUZZER_PIN, GPIO.HIGH)
-            # Se c'è fuoco e la notifica è stata già inviata non fare niente
+        """Gestisce l'attivazione del buzzer e la logica di mantenimento."""
+        current_time = time.time()
 
-        else:   # In assenza di incendio la notifica deve essere posta a falso
-            self.is_alert_active = False
-            GPIO.output(self.BUZZER_PIN, GPIO.LOW)
+        if fire_detected:
+            # Aggiorna il timestamp ogni volta che viene rilevato fuoco
+            self.last_alarm_trigger_time = current_time
+
+            if not self.is_alert_active:    # Caso in cui l'allarme non è ancora attivo
+                logging.info("!!! ALLARME FISICO AVVIATO !!!")
+                self.pwm.start(50)  # Duty cycle 50% per buzzer passivo
+                self.is_alert_active = True
+                self.publish_via_mqtt(timestamp, confidence)
+
+        else:   # Caso in cui non c'è fuoco
+            if self.is_alert_active:    # Se l'allarme è ancora attivo
+                elapsed = current_time - self.last_alarm_trigger_time
+
+                if elapsed >= self.min_alarm_duration:  #... E sono passati almeno 2 secondi, puoi spegnere l'allarme
+                    logging.info(f"Spegnimento allarme dopo {elapsed:.1f}s di sicurezza.")
+                    self.pwm.stop()
+                    self.is_alert_active = False
+                else:
+                    pass
+
+    def cleanup(self):
+        """Rilascia le risorse GPIO."""
+        self.pwm.stop()
+        GPIO.cleanup()
+        self.client.loop_stop()
+        logging.info("Risorse AlertNotifier rilasciate.")

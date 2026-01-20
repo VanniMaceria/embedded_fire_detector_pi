@@ -1,0 +1,221 @@
+[
+    {
+        "id": "376f2043cc75ab88",
+        "type": "ui_gauge",
+        "z": "236df39e11bb332e",
+        "name": "Probability",
+        "group": "92da84aaf2dc99c4",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "gtype": "gage",
+        "title": "Probability",
+        "label": "units",
+        "format": "{{value}}",
+        "min": "1",
+        "max": "100",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 810,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "0ecd086e1f47441f",
+        "type": "mqtt in",
+        "z": "236df39e11bb332e",
+        "name": "",
+        "topic": "v1/devices/me/telemetry",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e26a984c8eee1f4b",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 260,
+        "wires": [
+            [
+                "13aaf2cec3603a39"
+            ]
+        ]
+    },
+    {
+        "id": "138a31cbe2734667",
+        "type": "function",
+        "z": "236df39e11bb332e",
+        "name": "function return keys",
+        "func": "// 1. Recuperiamo lo storico (o creiamo un array vuoto se è la prima volta)\nvar storico = flow.get('storico_incendi') || [];\n\n// 2. Prendiamo i dati in arrivo dal nodo JSON\nvar dati = msg.payload;\nvar prob = Math.floor(dati.probability * 100);\n\n// 3. Creiamo la riga per il log\nvar nuovaRiga = \"[\" + dati.timestamp + \"] STATO: \" + dati.status + \" - PROB: \" + prob + \"%\";\n\n// 4. Aggiorniamo lo storico (aggiungi in cima, tieni ultimi 10)\nstorico.unshift(nuovaRiga);\nif (storico.length > 10) { storico.pop(); }\nflow.set('storico_incendi', storico);\n\n// 5. PREPARIAMO I DUE MESSAGGI (QUESTO È IL PUNTO CRITICO)\n// Ogni uscita deve essere un OGGETTO con dentro la proprietà 'payload'\n\nvar msg_per_gauge = { payload: prob };      // Inviato all'uscita 1\nvar msg_per_logger = { payload: storico };  // Inviato all'uscita 2\n\n// 6. Restituiamo l'array dei messaggi\nreturn [msg_per_gauge, msg_per_logger];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 260,
+        "wires": [
+            [
+                "376f2043cc75ab88"
+            ],
+            [
+                "37e588921026f1c8"
+            ]
+        ]
+    },
+    {
+        "id": "37e588921026f1c8",
+        "type": "ui_template",
+        "z": "236df39e11bb332e",
+        "group": "92da84aaf2dc99c4",
+        "name": "logger",
+        "order": 1,
+        "width": "0",
+        "height": "0",
+        "format": "<style>\n    .terminal-container {\n        background-color: #000;\n        color: #00ff00;\n        padding: 10px;\n        font-family: 'Courier New', monospace;\n        border: 2px solid #444;\n        border-radius: 5px;\n        height: 250px;\n        overflow-y: auto;\n        overflow-x: hidden;\n        box-shadow: inset 0 0 10px #000;\n    }\n\n    .log-line {\n        border-bottom: 1px solid #222;\n        padding: 4px 0;\n        font-size: 13px;\n        /* MODIFICA QUI: Permette al testo di andare a capo */\n        white-space: pre-wrap;\n        /* Mantiene gli spazi e va a capo */\n        word-wrap: break-word;\n        /* Spezza le parole se troppo lunghe */\n        display: flex;\n        /* Allinea bene il prompt '>' con il testo */\n    }\n\n    .prompt {\n        color: #008800;\n        font-weight: bold;\n        margin-right: 8px;\n        flex-shrink: 0;\n        /* Impedisce al '>' di rimpicciolirsi */\n    }\n\n    .log-content {\n        flex-grow: 1;\n    }\n</style>\n\n<div class=\"terminal-container\">\n    <div ng-repeat=\"linea in msg.payload track by $index\" class=\"log-line\">\n        <span class=\"prompt\">></span>\n        <span class=\"log-content\">{{linea}}</span>\n    </div>\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 810,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ac20965da1f875a0",
+        "type": "ui_button",
+        "z": "236df39e11bb332e",
+        "name": "",
+        "group": "92da84aaf2dc99c4",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "label": "AZZERA",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 140,
+        "y": 100,
+        "wires": [
+            [
+                "9060e525cbfecc76"
+            ]
+        ]
+    },
+    {
+        "id": "9060e525cbfecc76",
+        "type": "function",
+        "z": "236df39e11bb332e",
+        "name": "function reset",
+        "func": "// 1. Cancelliamo la memoria dello storico nel flusso\nflow.set('storico_incendi', []);\n\n// 2. Prepariamo i messaggi di azzeramento\nvar pulisciGauge = { payload: 0 };  // Riporta il manometro a zero\nvar pulisciLog = { payload: [] };    // Invia un array vuoto al template\n\n// 3. Restituiamo i messaggi alle rispettive uscite\nreturn [pulisciGauge, pulisciLog];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 100,
+        "wires": [
+            [
+                "376f2043cc75ab88"
+            ],
+            [
+                "37e588921026f1c8"
+            ]
+        ]
+    },
+    {
+        "id": "13aaf2cec3603a39",
+        "type": "function",
+        "z": "236df39e11bb332e",
+        "name": "function decrypt",
+        "func": "// La chiave dal tuo file key.py\nconst password = \"aB1cDe2fGh3iJk4lMn5oPq6rSt7uVw8x\";\nconst encryptedPayload = msg.payload;\n\ntry {\n    // 1. Preparazione della chiave come WordArray (formato richiesto da CryptoJS)\n    const key = CryptoJS.enc.Utf8.parse(password);\n\n    // 2. Decrittazione AES-256 ECB\n    const decrypted = CryptoJS.AES.decrypt(encryptedPayload, key, {\n        mode: CryptoJS.mode.ECB,\n        padding: CryptoJS.pad.Pkcs7\n    });\n\n    // 3. Conversione in stringa UTF-8\n    const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);\n\n    if (!decryptedText) {\n        throw new Error(\"Chiave errata o dati corrotti\");\n    }\n\n    // 4. Trasformazione della stringa in oggetto JSON\n    msg.payload = JSON.parse(decryptedText);\n\n    return msg;\n\n} catch (e) {\n    node.error(\"Errore Decrittazione: \" + e.message);\n    return null; // Blocca il flusso se il dato è illeggibile\n}",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "CryptoJS",
+                "module": "crypto-js"
+            }
+        ],
+        "x": 380,
+        "y": 260,
+        "wires": [
+            [
+                "138a31cbe2734667"
+            ]
+        ]
+    },
+    {
+        "id": "92da84aaf2dc99c4",
+        "type": "ui_group",
+        "name": "ProgettoEmbeddedIoT",
+        "tab": "1890812e159914cf",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "e26a984c8eee1f4b",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "127.0.0.1",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "1890812e159914cf",
+        "type": "ui_tab",
+        "name": "FireDetector",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    }
+]

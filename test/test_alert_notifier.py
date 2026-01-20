@@ -17,7 +17,7 @@ class TestAlertNotifier(TestCase):
         notifier = AlertNotifier()
 
         # --- ASSERT ---
-        mock_instance.connect_async.assert_called_with("127.0.0.1", 1884, keepalive=60)
+        mock_instance.connect_async.assert_called_with("127.0.0.1", 1883, keepalive=60)
 
     @patch.object(mqtt, 'Client')
     def test_publish_via_mqtt_publishes_at_right_topic(self, mock_client_class):

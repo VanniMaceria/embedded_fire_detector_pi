@@ -1,7 +1,9 @@
-import json
 import logging
 import paho.mqtt.client as mqtt
 import time
+
+from security.security_manager import SecurityManager
+from security import key as key
 
 try:
     import RPi.GPIO as GPIO
@@ -40,11 +42,15 @@ class AlertNotifier:
 
         #Parametri di Rete
         self.mqtt_server = "127.0.0.1"
-        self.mqtt_port = 1884
+        self.mqtt_port = 1883
         self.mqtt_clientID = "FireDetectorES"
         self.mqtt_username = "FireDetectorUser"
         self.mqtt_password = "FireDetectorPassword"
         self.topic = "v1/devices/me/telemetry"
+
+        # Parametri crittografia - usa una chiave da 32 caratteri per AES-256
+        self.secret_key = key.AES_KEY
+        self.security = SecurityManager(self.secret_key)
 
         # Stato Allarme e Timer
         self.is_alert_active = False
@@ -62,7 +68,7 @@ class AlertNotifier:
 
         # Avvio MQTT Asincrono (Non blocca se il container è spento)
         try:
-            logging.info("Inizializzazione MQTT asincrona (Porta 1884)...")
+            logging.info("Inizializzazione MQTT asincrona...")
             self.client.connect_async(self.mqtt_server, self.mqtt_port, keepalive=60)
             self.client.loop_start()
         except Exception as e:
@@ -80,18 +86,23 @@ class AlertNotifier:
         logging.warning("Scollegato dal broker MQTT")
 
     def publish_via_mqtt(self, timestamp: str, confidence: float):
-        """Invia i dati al broker se connesso."""
+        """Prepara i dati, li fa criptare e li invia."""
         if not self._connected:
-            return  # Evita di tentare reconnect bloccanti durante il loop video
+            return
 
+        # Dati in chiaro
         data = {
             "status": "FIRE_DETECTED",
             "timestamp": timestamp,
             "probability": round(confidence, 4)
         }
-        payload = json.dumps(data)
-        self.client.publish(self.topic, payload)
-        logging.info(f"Dati inviati al broker: {payload}")
+
+        # crittografia dei dati
+        payload_criptato = self.security.encrypt_data(data)
+
+        if payload_criptato:
+            self.client.publish(self.topic, payload_criptato)
+            logging.info(f"Dati criptati inviati: {payload_criptato}")
 
         return True
 

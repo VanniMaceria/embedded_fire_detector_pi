@@ -21,3 +21,6 @@ This project demonstrates vulnerabilities in IoT AI based solutions and implemen
 1.  **The Attack:** We demonstrate that an **Adversarial Patch** placed in the camera frame can blind the model (Evasion Attack).
 2.  **The Defense:** The deployed model is hardened using **Adversarial Training** to resist these attacks.
 3.  In addition, MQTT data is encrypted using **AES-128** algorithm
+
+<img width="972" height="553" alt="attacks" src="https://github.com/user-attachments/assets/7876bf5a-a33f-4eb3-aea5-412fe0cba561" />
+

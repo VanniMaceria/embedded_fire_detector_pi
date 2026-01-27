@@ -15,6 +15,9 @@ The system is modularized into five core components:
 * **`FireMonitor`**: Main orchestrator controlling the logic loop.
 * **`AlertNotifier`**: Handles MQTT communication.
 
+<img width="1167" height="633" alt="workflow" src="https://github.com/user-attachments/assets/637b6e89-42f7-4128-9dcb-762cbfc61cc1" />
+
+
 ## 🛡 IoT Security: Adversarial Attacks
 This project demonstrates vulnerabilities in IoT AI based solutions and implements defenses.
 

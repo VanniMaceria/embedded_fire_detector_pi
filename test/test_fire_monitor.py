@@ -26,7 +26,7 @@ class TestFireMonitor(unittest.TestCase):
 
         mock_notifier_instance = MockNotifier.return_value
 
-        monitor = FireMonitor("dummy.mp4", "dummy.tflite", "localhost", "topic")
+        monitor = FireMonitor("dummy.mp4", "dummy.tflite")
         monitor.run()
 
         mock_notifier_instance.notify.assert_called_with(
@@ -51,7 +51,7 @@ class TestFireMonitor(unittest.TestCase):
 
         mock_notifier_instance = MockNotifier.return_value
 
-        monitor = FireMonitor("dummy.mp4", "dummy.tflite", "localhost", "topic")
+        monitor = FireMonitor("dummy.mp4", "dummy.tflite")
         monitor.run()
 
         mock_notifier_instance.notify.assert_called_with(
@@ -73,11 +73,8 @@ class TestFireMonitor(unittest.TestCase):
         mock_engine_instance.width = 224
         mock_engine_instance.height = 224
 
-        monitor = FireMonitor("dummy.mp4", "dummy.tflite", "localhost", "topic")
+        monitor = FireMonitor("dummy.mp4", "dummy.tflite")
         monitor.run()
 
         mock_engine_instance.predict.assert_not_called()
         MockCv2.destroyAllWindows.assert_called()
-
-if __name__ == '__main__':
-    unittest.main()
